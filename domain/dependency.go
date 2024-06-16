@@ -9,6 +9,9 @@ import "github.com/Masterminds/semver/v3"
 // the given file. As well as providing a mechanism for fetching the latest
 // version of a given dependency from an appropriate data source.
 type DependencyManager interface {
+    // Get the name of the manager
+    GetName() string
+
 	// Get the name of the file this manager supports
 	GetFileName() string
 

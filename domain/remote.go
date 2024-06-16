@@ -8,5 +8,6 @@ type Repository struct {
 }
 
 type RemoteHandler interface {
+    GetName() string
 	CreateMergeRequest(repo Repository, sourceBranch string, targetBranch string) error
 }

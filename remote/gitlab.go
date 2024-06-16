@@ -46,6 +46,10 @@ type GitlabRemoteHandler struct {
 	SquashCommits      bool
 }
 
+func (GitlabRemoteHandler) GetName() string {
+    return "GitlabRemoteHandler"
+}
+
 func (g *GitlabRemoteHandler) CreateMergeRequest(repo domain.Repository, sourceBranch string, targetBranch string) error {
 	mr := MergeRequest{
 		SourceBranch:       sourceBranch,

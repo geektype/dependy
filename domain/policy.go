@@ -7,6 +7,9 @@ package domain
 // on each policy's objective. The policy can utilise mechanisms provided by
 // a `DependencyManger` to obtain information about a dependency.
 type Policy interface {
+    // Get the name of the policy
+    GetName() string
+
 	// Takes in a list of dependecies and an associated manager and returns a
 	// *new* list of dependencies consisting only of the dependencies to be
 	// changed.

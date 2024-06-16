@@ -10,6 +10,10 @@ import "github.com/geektype/dependy/domain"
 type SimpleUpdatePolicy struct {
 }
 
+func (SimpleUpdatePolicy) GetName() string {
+    return "SimplePolicy"
+}
+
 func (SimpleUpdatePolicy) GetNextDependencies(current []domain.Dependency, manager domain.DependencyManager) ([]domain.Dependency, error) {
 
 	newDeps := make([]domain.Dependency, 0)

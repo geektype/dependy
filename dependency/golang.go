@@ -22,6 +22,10 @@ type GoLangDependencyManager struct {
 	ApiClient *depsdev.API
 }
 
+func (*GoLangDependencyManager) GetName() string {
+    return "GoLangManager"
+}
+
 func (g *GoLangDependencyManager) GetFileName() string {
 	return "go.mod"
 }
