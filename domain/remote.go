@@ -10,14 +10,14 @@ type RemoteHandler interface {
 	GetName() string
 
 	// Fetch repositories matching given filters and criteria
-    //
-    // TODO: Implement filters and search criteria
+	//
+	// TODO: Implement filters and search criteria
 	GetRepositories() ([]Repository, error)
 
-    // Create equivalent of a merge request in remote to merge dependy branch with main branch
+	// Create equivalent of a merge request in remote to merge dependy branch with main branch
 	CreateMergeRequest(repo Repository, sourceBranch string, targetBranch string) error
 
-    // Check if there is already an active merge request in the repository
+	// Check if there is already an active merge request in the repository
 	CheckMRExists(repo Repository) (bool, error)
 }
 

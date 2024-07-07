@@ -57,8 +57,13 @@ func NewRemoteHandler(global domain.GlobalConfig) (domain.RemoteHandler, error) 
 	}
 }
 
-func processRepo(repo domain.Repository, git_config GitConfig, remote_handler domain.RemoteHandler, depManager domain.DependencyManager, policy domain.Policy) {
-
+func processRepo(
+	repo domain.Repository,
+	git_config GitConfig,
+	remote_handler domain.RemoteHandler,
+	depManager domain.DependencyManager,
+	policy domain.Policy,
+) {
 	slog.Info(fmt.Sprintf("Processing %s repository", repo.Name))
 	// Check if a dependy PR already exists
 	slog.Debug("Checking if a dependy merge request is already active")
