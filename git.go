@@ -33,15 +33,15 @@ type GitAuthor struct {
 }
 
 type GitAuth struct {
-    Username string
-    Password string
+	Username string
+	Password string
 }
 
 type GitConfig struct {
 	PatchBranchPrefix string
 	CommitTitlePrefix string
 	Author            GitAuthor
-    Auth GitAuth
+	Auth              GitAuth
 }
 
 type GitManager struct {
@@ -56,7 +56,7 @@ type GitManager struct {
 }
 
 func (g *GitManager) CloneRepo(repo domain.Repository) error {
-    slog.Debug("Cloning " + repo.Url)
+	slog.Debug("Cloning " + repo.Url)
 	r, err := git.Clone(g.Storer, g.FileSystem, &git.CloneOptions{
 		URL: repo.Url,
 		Auth: &http.BasicAuth{
@@ -79,7 +79,7 @@ func (g *GitManager) CloneRepo(repo domain.Repository) error {
 }
 
 func (g *GitManager) BranchMain() error {
-    slog.Debug(fmt.Sprintf("Creating %s branch from %s", g.Config.PatchBranchPrefix, g.MainBranch))
+	slog.Debug(fmt.Sprintf("Creating %s branch from %s", g.Config.PatchBranchPrefix, g.MainBranch))
 	headRef, err := g.Repository.Head()
 	if err != nil {
 		return err
@@ -90,7 +90,7 @@ func (g *GitManager) BranchMain() error {
 
 	// Checkout DependyBranch
 
-    slog.Debug(fmt.Sprintf("Checking out %s", g.Config.PatchBranchPrefix))
+	slog.Debug(fmt.Sprintf("Checking out %s", g.Config.PatchBranchPrefix))
 	if err := g.WorkTree.Checkout(&git.CheckoutOptions{
 		Branch: plumbing.ReferenceName(branchRefName),
 	}); err != nil {
@@ -101,7 +101,7 @@ func (g *GitManager) BranchMain() error {
 }
 
 func (g *GitManager) OpenFile(fileName string) ([]byte, error) {
-    slog.Debug(fmt.Sprintf("Reading %s in to buffer", fileName))
+	slog.Debug(fmt.Sprintf("Reading %s in to buffer", fileName))
 	f, err := g.FileSystem.Open(fileName)
 	if err != nil {
 		return nil, err
@@ -117,7 +117,7 @@ func (g *GitManager) OpenFile(fileName string) ([]byte, error) {
 }
 
 func (g *GitManager) OverwriteFile(filename string, content []byte) error {
-    slog.Debug("Updating contents of " + filename)
+	slog.Debug("Updating contents of " + filename)
 	f, err := g.FileSystem.Create(filename)
 	if err != nil {
 		return err
@@ -149,13 +149,13 @@ func (g *GitManager) CommitFile(filename string, content []byte) error {
 			When:  time.Now(),
 		},
 	}
-    slog.Debug("Commiting changes to branch")
+	slog.Debug("Commiting changes to branch")
 	commitMessage := fmt.Sprintf("%s Update dependencies", g.Config.CommitTitlePrefix)
-    commitHash, err := g.WorkTree.Commit(commitMessage, commitOptions)
+	commitHash, err := g.WorkTree.Commit(commitMessage, commitOptions)
 	if err != nil {
 		return err
 	}
-    slog.Debug("Created commit " + commitHash.String())
+	slog.Debug("Created commit " + commitHash.String())
 	return nil
 }
 
