@@ -11,7 +11,7 @@ type SimpleUpdatePolicy struct {
 }
 
 func (SimpleUpdatePolicy) GetName() string {
-    return "SimplePolicy"
+	return "SimplePolicy"
 }
 
 func (SimpleUpdatePolicy) GetNextDependencies(current []domain.Dependency, manager domain.DependencyManager) ([]domain.Dependency, error) {

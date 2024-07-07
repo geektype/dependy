@@ -23,7 +23,7 @@ type GoLangDependencyManager struct {
 }
 
 func (*GoLangDependencyManager) GetName() string {
-    return "GoLangManager"
+	return "GoLangManager"
 }
 
 func (g *GoLangDependencyManager) GetFileName() string {
