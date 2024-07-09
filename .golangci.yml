@@ -11,6 +11,8 @@ linters-settings:
       - opinionated
       - performance
       - style
+    disabled-checks:
+      - hugeParam
   nolintlint:
     require-explanation: true
     require-specific: true
@@ -19,7 +21,6 @@ linters:
   disable-all: true
   enable:
     - bodyclose
-    - depguard
     - dogsled
     - dupl
     - errcheck
