@@ -158,11 +158,15 @@ func processRepo(
 
 func main() {
 	startMs := time.Now()
-	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
+	lvlDefault := new(slog.LevelVar)
+	lvlDefault.Set(slog.LevelInfo)
+	logOpts := &tint.Options{
+		Level: lvlDefault,
+	}
+	logger := slog.New(tint.NewHandler(os.Stdout, logOpts))
 	slog.SetDefault(logger)
 
 	slog.Info("Starting dependy")
-
 	slog.Info("Reading configuration file")
 	viper.SetConfigFile("./config/main.yaml")
 
@@ -178,6 +182,28 @@ func main() {
 	if err != nil {
 		slog.Error("Failed to unmarshal global config", slog.Any("error", err))
 		panic(err)
+	}
+
+	switch global.DebugLevel {
+	case "DEBUG":
+		slog.Info("Using DEBUG log level")
+		lvlDefault.Set(slog.LevelDebug)
+	case "INFO":
+		slog.Info("Using INFO log level")
+		lvlDefault.Set(slog.LevelInfo)
+	case "WARN":
+		lvlDefault.Set(slog.LevelWarn)
+	case "ERROR":
+		lvlDefault.Set(slog.LevelError)
+	case "":
+		slog.Info("Defaulting to INFO log level")
+	default:
+		slog.Error(
+			fmt.Sprintf(
+				"%s not recongnised as a valid log level. Defaulting to INFO",
+				global.DebugLevel,
+			),
+		)
 	}
 
 	gitSub := viper.Sub("git")
