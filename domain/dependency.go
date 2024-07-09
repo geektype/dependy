@@ -5,7 +5,7 @@ import "github.com/Masterminds/semver/v3"
 // Represents abstraciton for ecosystem specific dependency management
 //
 // Every ecosystem manager (i.e) Go, Cargo, PyPi, NPM etc should implement this
-// to handle the parsing and extraction of *relavent* dependencies from
+// to handle the parsing and extraction of *relavant* dependencies from
 // the given file. As well as providing a mechanism for fetching the latest
 // version of a given dependency from an appropriate data source.
 type DependencyManager interface {

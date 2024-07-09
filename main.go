@@ -29,57 +29,64 @@ func newPolicy(config domain.GlobalConfig) (domain.Policy, error) {
 		slog.Warn("Policy not defined in config, defaulting to SimplePolicy")
 		return policy.SimpleUpdatePolicy{}, nil
 	default:
-		return nil, errors.New(fmt.Sprintf("Policy %s not found", config.DefaultPolicy))
+		return nil, fmt.Errorf("policy %s not found", config.DefaultPolicy)
 	}
 }
 
 func NewRemoteHandler(global domain.GlobalConfig) (domain.RemoteHandler, error) {
 	switch global.RemoteGitProvider {
 	case "Gitlab":
-
 		c := viper.Sub("Gitlab")
 		if c == nil {
-			return nil, errors.New("Config for Gitlab not found")
+			return nil, errors.New("config for Gitlab not found")
 		}
+
 		var gitlab remote.GitlabConfig
+
 		err := c.Unmarshal(&gitlab)
 		if err != nil {
 			return nil, err
 		}
+
 		handler, err := remote.NewGitlabRemoteHandler(global, gitlab)
 		if err != nil {
 			return nil, err
 		}
+
 		return handler, nil
 
 	default:
-		return nil, errors.New(fmt.Sprintf("Git provider %s not found", global.RemoteGitProvider))
+		return nil, fmt.Errorf("git provider %s not found", global.RemoteGitProvider)
 	}
 }
 
 func processRepo(
 	repo domain.Repository,
-	git_config GitConfig,
-	remote_handler domain.RemoteHandler,
+	gitConfig GitConfig,
+	remoteHandler domain.RemoteHandler,
 	depManager domain.DependencyManager,
-	policy domain.Policy,
+	updatePolicy domain.Policy,
 ) {
 	slog.Info(fmt.Sprintf("Processing %s repository", repo.Name))
 	// Check if a dependy PR already exists
 	slog.Debug("Checking if a dependy merge request is already active")
-	exists, err := remote_handler.CheckMRExists(repo)
+
+	exists, err := remoteHandler.CheckMRExists(repo)
 	if err != nil {
 		slog.Error("Failed to check if an actie MR exists. Skipping...")
 		return
 	}
+
 	if exists {
 		slog.Info("There is already an active dependy merge request. Skipping...")
 		return
 	}
-	gitM := NewGitManager(git_config)
+
+	gitM := NewGitManager(gitConfig)
+
 	err = gitM.CloneRepo(repo)
 	if err != nil {
-		slog.Error("Failed to clone "+repo.Url, slog.Any("error", err))
+		slog.Error("Failed to clone "+repo.URL, slog.Any("error", err))
 		panic(err)
 	}
 
@@ -90,6 +97,9 @@ func processRepo(
 	}
 
 	f, err := gitM.OpenFile(depManager.GetFileName())
+	if err != nil {
+		slog.Error("Error opening file: ", slog.Any("error", err))
+	}
 
 	ds, err := depManager.ParseFile(f)
 	if err != nil {
@@ -97,7 +107,7 @@ func processRepo(
 		panic(err)
 	}
 
-	updated, err := policy.GetNextDependencies(ds, depManager)
+	updated, err := updatePolicy.GetNextDependencies(ds, depManager)
 	if err != nil {
 		slog.Error("Error while fetching latest dependency versions", slog.Any("error", err))
 		panic(err)
@@ -107,9 +117,12 @@ func processRepo(
 		slog.Info("Already up to date. Skipping")
 		return
 	}
+
 	slog.Info("Updating dependencies")
+
 	for _, d := range updated {
-		depManager.ApplyDependency(d)
+		err := depManager.ApplyDependency(d)
+		slog.Error("Could not apply dependency update", slog.Any("error", err))
 	}
 
 	final, err := depManager.GetFile()
@@ -125,6 +138,7 @@ func processRepo(
 	}
 
 	slog.Info("Pushing changes to remote")
+
 	err = gitM.Push()
 	if err != nil {
 		slog.Error("Failed to push to remote repository", slog.Any("error", err))
@@ -132,7 +146,8 @@ func processRepo(
 	}
 
 	slog.Info("Creating merge request")
-	err = remote_handler.CreateMergeRequest(repo, git_config.PatchBranchPrefix, repo.Branch)
+
+	err = remoteHandler.CreateMergeRequest(repo, gitConfig.PatchBranchPrefix, repo.Branch)
 	if err != nil {
 		slog.Error("Failed to create Merge Request", slog.Any("error", err))
 		panic(err)
@@ -142,7 +157,7 @@ func processRepo(
 }
 
 func main() {
-	start_ms := time.Now()
+	startMs := time.Now()
 	logger := slog.New(tint.NewHandler(os.Stdout, &tint.Options{Level: slog.LevelInfo}))
 	slog.SetDefault(logger)
 
@@ -150,6 +165,7 @@ func main() {
 
 	slog.Info("Reading configuration file")
 	viper.SetConfigFile("./config/main.yaml")
+
 	err := viper.ReadInConfig()
 	if err != nil {
 		logger.Error("Failed to read configuration file", slog.Any("error", err))
@@ -157,6 +173,7 @@ func main() {
 	}
 
 	var global domain.GlobalConfig
+
 	err = viper.Unmarshal(&global)
 	if err != nil {
 		slog.Error("Failed to unmarshal global config", slog.Any("error", err))
@@ -164,7 +181,9 @@ func main() {
 	}
 
 	gitSub := viper.Sub("git")
+
 	var gitConfig GitConfig
+
 	err = gitSub.Unmarshal(&gitConfig)
 	// TODO: Should provide default values instead of panicing
 	if err != nil {
@@ -175,21 +194,23 @@ func main() {
 	depManager := newManager()
 	slog.Info("Successfully setup " + depManager.GetName())
 
-	policy, err := newPolicy(global)
+	updatePolicy, err := newPolicy(global)
 	if err != nil {
 		slog.Error("Could not initialise update policy", slog.Any("error", err))
 		panic(err)
 	}
-	slog.Info("Update policy set to: " + policy.GetName())
+
+	slog.Info("Update policy set to: " + updatePolicy.GetName())
 
 	remoteHandler, err := NewRemoteHandler(global)
 	if err != nil {
 		slog.Error("Could not initialise Remote Git Handler", slog.Any("error", err))
 		panic(err)
 	}
+
 	slog.Info("Successfully setup " + remoteHandler.GetName())
 
-	slog.Info(fmt.Sprintf("Finished startup in %s", time.Now().Sub(start_ms)))
+	slog.Info(fmt.Sprintf("Finished startup in %s", time.Since(startMs)))
 
 	slog.Info("Starting Dependy!")
 
@@ -205,6 +226,7 @@ func main() {
 				return
 			case t := <-ticker.C:
 				fmt.Println("Tick at ", t)
+
 				repos, err := remoteHandler.GetRepositories()
 				if err != nil {
 					panic(err)
@@ -212,17 +234,27 @@ func main() {
 
 				for _, r := range repos {
 					wg.Add(1)
+
 					go func(r domain.Repository) {
-						processRepo(r, gitConfig, remoteHandler, depManager, policy)
+						processRepo(r, gitConfig, remoteHandler, depManager, updatePolicy)
 						wg.Done()
 					}(r)
 				}
+
 				wg.Wait()
 			}
 		}
 	}()
 
-	fmt.Scanln()
+	_, err = fmt.Scanln()
+	if err != nil {
+		ticker.Stop()
+		done <- true
+
+		slog.Error("Error encoutered while reading input", slog.Any("error", err))
+		panic(err)
+	}
+
 	slog.Info("Attempting to shutdown gracefully")
 	ticker.Stop()
 	done <- true

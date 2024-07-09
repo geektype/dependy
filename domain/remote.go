@@ -23,8 +23,8 @@ type RemoteHandler interface {
 
 // A Git Repository provided by a remote provider
 type Repository struct {
-	Id     string // Identifier assigned by remote (not related to GIT)
+	ID     string // Identifier assigned by remote (not related to GIT)
 	Name   string // Human friendly repo name of the format <namespace>/<repo_name>. i.e geektype/dependy
-	Url    string // **HTTPS** remote URL for Repository
+	URL    string // **HTTPS** remote URL for Repository
 	Branch string // Name of the designated main branch
 }

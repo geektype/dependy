@@ -7,15 +7,16 @@ import "github.com/geektype/dependy/domain"
 // Compares latest non pre-release version to current version and if newer
 // version is behind by 1 minor version, the dependency is updated to latest
 // version, including latest patch version.
-type SimpleUpdatePolicy struct {
-}
+type SimpleUpdatePolicy struct{}
 
 func (SimpleUpdatePolicy) GetName() string {
 	return "SimplePolicy"
 }
 
-func (SimpleUpdatePolicy) GetNextDependencies(current []domain.Dependency, manager domain.DependencyManager) ([]domain.Dependency, error) {
-
+func (SimpleUpdatePolicy) GetNextDependencies(
+	current []domain.Dependency,
+	manager domain.DependencyManager,
+) ([]domain.Dependency, error) {
 	newDeps := make([]domain.Dependency, 0)
 
 	for _, dep := range current {
@@ -31,5 +32,6 @@ func (SimpleUpdatePolicy) GetNextDependencies(current []domain.Dependency, manag
 			})
 		}
 	}
+
 	return newDeps, nil
 }

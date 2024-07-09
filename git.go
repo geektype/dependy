@@ -18,6 +18,7 @@ import (
 func NewGitManager(config GitConfig) *GitManager {
 	fs := memfs.New()
 	storer := memory.NewStorage()
+
 	return &GitManager{
 		FileSystem: fs,
 		Storer:     storer,
@@ -56,9 +57,10 @@ type GitManager struct {
 }
 
 func (g *GitManager) CloneRepo(repo domain.Repository) error {
-	slog.Debug("Cloning " + repo.Url)
+	slog.Debug("Cloning " + repo.URL)
+
 	r, err := git.Clone(g.Storer, g.FileSystem, &git.CloneOptions{
-		URL: repo.Url,
+		URL: repo.URL,
 		Auth: &http.BasicAuth{
 			Username: g.Username,
 			Password: g.Password,
@@ -69,10 +71,12 @@ func (g *GitManager) CloneRepo(repo domain.Repository) error {
 	}
 
 	g.Repository = r
+
 	g.WorkTree, err = r.Worktree()
 	if err != nil {
 		return err
 	}
+
 	g.MainBranch = repo.Branch
 
 	return nil
@@ -80,19 +84,26 @@ func (g *GitManager) CloneRepo(repo domain.Repository) error {
 
 func (g *GitManager) BranchMain() error {
 	slog.Debug(fmt.Sprintf("Creating %s branch from %s", g.Config.PatchBranchPrefix, g.MainBranch))
+
 	headRef, err := g.Repository.Head()
 	if err != nil {
 		return err
 	}
+
 	branchRefName := plumbing.NewBranchReferenceName(g.Config.PatchBranchPrefix)
 	branchHashRef := plumbing.NewHashReference(branchRefName, headRef.Hash())
-	g.Repository.Storer.SetReference(branchHashRef)
+
+	err = g.Repository.Storer.SetReference(branchHashRef)
+	if err != nil {
+		return err
+	}
 
 	// Checkout DependyBranch
 
 	slog.Debug(fmt.Sprintf("Checking out %s", g.Config.PatchBranchPrefix))
+
 	if err := g.WorkTree.Checkout(&git.CheckoutOptions{
-		Branch: plumbing.ReferenceName(branchRefName),
+		Branch: branchRefName,
 	}); err != nil {
 		return err
 	}
@@ -102,12 +113,14 @@ func (g *GitManager) BranchMain() error {
 
 func (g *GitManager) OpenFile(fileName string) ([]byte, error) {
 	slog.Debug(fmt.Sprintf("Reading %s in to buffer", fileName))
+
 	f, err := g.FileSystem.Open(fileName)
 	if err != nil {
 		return nil, err
 	}
 
 	buffer := make([]byte, 50000)
+
 	i, err := f.Read(buffer)
 	if err != nil {
 		return nil, err
@@ -118,6 +131,7 @@ func (g *GitManager) OpenFile(fileName string) ([]byte, error) {
 
 func (g *GitManager) OverwriteFile(filename string, content []byte) error {
 	slog.Debug("Updating contents of " + filename)
+
 	f, err := g.FileSystem.Create(filename)
 	if err != nil {
 		return err
@@ -149,13 +163,18 @@ func (g *GitManager) CommitFile(filename string, content []byte) error {
 			When:  time.Now(),
 		},
 	}
-	slog.Debug("Commiting changes to branch")
+
+	slog.Debug("Committing changes to branch")
+
 	commitMessage := fmt.Sprintf("%s Update dependencies", g.Config.CommitTitlePrefix)
+
 	commitHash, err := g.WorkTree.Commit(commitMessage, commitOptions)
 	if err != nil {
 		return err
 	}
+
 	slog.Debug("Created commit " + commitHash.String())
+
 	return nil
 }
 
