@@ -64,7 +64,6 @@ func processRepo(
 	repo domain.Repository,
 	gitConfig GitConfig,
 	remoteHandler domain.RemoteHandler,
-	depManager domain.DependencyManager,
 	updatePolicy domain.Policy,
 ) {
 	slog.Info(fmt.Sprintf("Processing %s repository", repo.Name))
@@ -96,6 +95,8 @@ func processRepo(
 		panic(err)
 	}
 
+	depManager := newManager()
+
 	f, err := gitM.OpenFile(depManager.GetFileName())
 	if err != nil {
 		slog.Error("Error opening file: ", slog.Any("error", err))
@@ -122,7 +123,9 @@ func processRepo(
 
 	for _, d := range updated {
 		err := depManager.ApplyDependency(d)
-		slog.Error("Could not apply dependency update", slog.Any("error", err))
+		if err != nil {
+			slog.Error("Could not apply dependency update", slog.Any("error", err))
+		}
 	}
 
 	final, err := depManager.GetFile()
@@ -262,7 +265,7 @@ func main() {
 					wg.Add(1)
 
 					go func(r domain.Repository) {
-						processRepo(r, gitConfig, remoteHandler, depManager, updatePolicy)
+						processRepo(r, gitConfig, remoteHandler, updatePolicy)
 						wg.Done()
 					}(r)
 				}
