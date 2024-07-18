@@ -18,7 +18,6 @@ func NewGoLangDependencyManager() *GoLangDependencyManager {
 }
 
 type GoLangDependencyManager struct {
-	RawFile   []byte
 	ModFile   *modfile.File
 	APIClient *depsdev.API
 }
@@ -32,9 +31,7 @@ func (g *GoLangDependencyManager) GetFileName() string {
 }
 
 func (g *GoLangDependencyManager) ParseFile(contents []byte) ([]domain.Dependency, error) {
-	g.RawFile = contents
-
-	f, err := modfile.Parse(g.GetFileName(), g.RawFile, nil)
+	f, err := modfile.Parse(g.GetFileName(), contents, nil)
 	if err != nil {
 		return nil, err
 	}
