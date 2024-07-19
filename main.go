@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/geektype/dependy/dependency"
@@ -60,17 +65,13 @@ func NewRemoteHandler(global domain.GlobalConfig) (domain.RemoteHandler, error) 
 	}
 }
 
-func processRepo(
-	repo domain.Repository,
-	gitConfig GitConfig,
-	remoteHandler domain.RemoteHandler,
-	updatePolicy domain.Policy,
-) {
+func processRepo(g Global, repo domain.Repository) {
+	// TODO: Handle all panics
 	slog.Info(fmt.Sprintf("Processing %s repository", repo.Name))
 	// Check if a dependy PR already exists
 	slog.Debug("Checking if a dependy merge request is already active")
 
-	exists, err := remoteHandler.CheckMRExists(repo)
+	exists, err := g.remoteHandler.CheckMRExists(repo)
 	if err != nil {
 		slog.Error("Failed to check if an actie MR exists. Skipping...")
 		return
@@ -81,7 +82,7 @@ func processRepo(
 		return
 	}
 
-	gitM := NewGitManager(gitConfig)
+	gitM := NewGitManager(g.gitConfig)
 
 	err = gitM.CloneRepo(repo)
 	if err != nil {
@@ -108,7 +109,7 @@ func processRepo(
 		panic(err)
 	}
 
-	updated, err := updatePolicy.GetNextDependencies(ds, depManager)
+	updated, err := g.updatePolicy.GetNextDependencies(ds, depManager)
 	if err != nil {
 		slog.Error("Error while fetching latest dependency versions", slog.Any("error", err))
 		panic(err)
@@ -150,7 +151,7 @@ func processRepo(
 
 	slog.Info("Creating merge request")
 
-	err = remoteHandler.CreateMergeRequest(repo, gitConfig.PatchBranchPrefix, repo.Branch)
+	err = g.remoteHandler.CreateMergeRequest(repo, g.gitConfig.PatchBranchPrefix, repo.Branch)
 	if err != nil {
 		slog.Error("Failed to create Merge Request", slog.Any("error", err))
 		panic(err)
@@ -159,8 +160,44 @@ func processRepo(
 	slog.Info("Done processing")
 }
 
+func hookHandler(w http.ResponseWriter, _ *http.Request) {
+	slog.Info("Hook received")
+
+	_, err := io.WriteString(w, "Pong")
+	if err != nil {
+		slog.Error("error", slog.Any("error", err))
+	}
+}
+
+func CheckerFlow(g Global) {
+	var wg sync.WaitGroup
+
+	repos, err := g.remoteHandler.GetRepositories()
+	if err != nil {
+		panic(err)
+	}
+
+	for _, r := range repos {
+		wg.Add(1)
+
+		go func(r domain.Repository) {
+			processRepo(g, r)
+			wg.Done()
+		}(r)
+	}
+
+	wg.Wait()
+}
+
+type Global struct {
+	gitConfig     GitConfig
+	remoteHandler domain.RemoteHandler
+	updatePolicy  domain.Policy
+}
+
 func main() {
 	startMs := time.Now()
+
 	lvlDefault := new(slog.LevelVar)
 	lvlDefault.Set(slog.LevelInfo)
 	logOpts := &tint.Options{
@@ -171,6 +208,7 @@ func main() {
 
 	slog.Info("Starting dependy")
 	slog.Info("Reading configuration file")
+
 	viper.SetConfigFile("./config/main.yaml")
 
 	err := viper.ReadInConfig()
@@ -184,6 +222,17 @@ func main() {
 	err = viper.Unmarshal(&global)
 	if err != nil {
 		slog.Error("Failed to unmarshal global config", slog.Any("error", err))
+		panic(err)
+	}
+
+	gitSub := viper.Sub("git")
+
+	var gitConfig GitConfig
+
+	err = gitSub.Unmarshal(&gitConfig)
+	// TODO: Should provide default values instead of panicing
+	if err != nil {
+		slog.Error("Could not read Git config", slog.Any("error", err))
 		panic(err)
 	}
 
@@ -209,20 +258,6 @@ func main() {
 		)
 	}
 
-	gitSub := viper.Sub("git")
-
-	var gitConfig GitConfig
-
-	err = gitSub.Unmarshal(&gitConfig)
-	// TODO: Should provide default values instead of panicing
-	if err != nil {
-		slog.Error("Could not read Git config", slog.Any("error", err))
-		panic(err)
-	}
-
-	depManager := newManager()
-	slog.Info("Successfully setup " + depManager.GetName())
-
 	updatePolicy, err := newPolicy(global)
 	if err != nil {
 		slog.Error("Could not initialise update policy", slog.Any("error", err))
@@ -237,54 +272,82 @@ func main() {
 		panic(err)
 	}
 
+	g := &Global{
+		gitConfig:     gitConfig,
+		remoteHandler: remoteHandler,
+		updatePolicy:  updatePolicy,
+	}
+
 	slog.Info("Successfully setup " + remoteHandler.GetName())
 
-	slog.Info(fmt.Sprintf("Finished startup in %s", time.Since(startMs)))
+	var procWG sync.WaitGroup
 
-	slog.Info("Starting Dependy!")
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	var wg sync.WaitGroup
+	ticker := time.NewTicker(30000 * time.Millisecond)
+	tickDone := make(chan bool)
+	serverDone := make(chan bool)
+	firstCheck := make(chan bool)
 
-	ticker := time.NewTicker(5000 * time.Millisecond)
-	done := make(chan bool)
+	procWG.Add(1)
+	slog.Info("Starting Webhook Server")
 
 	go func() {
+		defer procWG.Done()
+
+		server := http.Server{
+			Addr:              ":8080",
+			ReadHeaderTimeout: 3 * time.Second,
+		}
+
+		http.HandleFunc("/", hookHandler)
+
+		go func() {
+			if err := server.ListenAndServe(); err != http.ErrServerClosed {
+				slog.Error("Web Server Error", slog.Any("error", err))
+			}
+		}()
+		<-serverDone
+
+		slog.Info("Shutting down webhook server")
+
+		if err := server.Shutdown(context.Background()); err != nil {
+			slog.Error("Failed to gracefully shutdown webhook server", slog.Any("error", err))
+		}
+	}()
+
+	procWG.Add(1)
+	slog.Info("Starting Checker")
+
+	go func() {
+		defer procWG.Done()
+
 		for {
 			select {
-			case <-done:
+			case <-tickDone:
 				return
+			case <-firstCheck:
+				slog.Debug("Initial Check")
+				CheckerFlow(*g)
 			case t := <-ticker.C:
 				fmt.Println("Tick at ", t)
-
-				repos, err := remoteHandler.GetRepositories()
-				if err != nil {
-					panic(err)
-				}
-
-				for _, r := range repos {
-					wg.Add(1)
-
-					go func(r domain.Repository) {
-						processRepo(r, gitConfig, remoteHandler, updatePolicy)
-						wg.Done()
-					}(r)
-				}
-
-				wg.Wait()
+				CheckerFlow(*g)
 			}
 		}
 	}()
 
-	_, err = fmt.Scanln()
-	if err != nil {
-		ticker.Stop()
-		done <- true
+	slog.Info(fmt.Sprintf("Finished startup in %s", time.Since(startMs)))
 
-		slog.Error("Error encoutered while reading input", slog.Any("error", err))
-		panic(err)
-	}
+	firstCheck <- true
+	// Wait for SIGINT//SIGTERM
+	<-sigs
 
+	// Signal goroutines to wind it up
 	slog.Info("Attempting to shutdown gracefully")
 	ticker.Stop()
-	done <- true
+	tickDone <- true
+	serverDone <- true
+
+	procWG.Wait()
 }
