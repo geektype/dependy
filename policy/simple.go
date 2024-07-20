@@ -4,7 +4,7 @@ import "github.com/geektype/dependy/domain"
 
 // Simple Update Policy
 //
-// Compares latest non pre-release version to current version and if newer
+// Compares latest non-pre-release version to current version and if newer
 // version is behind by 1 minor version, the dependency is updated to latest
 // version, including latest patch version.
 type SimpleUpdatePolicy struct{}

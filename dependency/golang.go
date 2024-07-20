@@ -90,7 +90,7 @@ func (g *GoLangDependencyManager) ApplyDependency(dependency domain.Dependency) 
 		}
 	}
 
-	return errors.New("depenedency not found in file")
+	return errors.New("dependency not found in file")
 }
 
 func (g *GoLangDependencyManager) GetFile() ([]byte, error) {

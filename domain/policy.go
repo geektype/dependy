@@ -10,7 +10,7 @@ type Policy interface {
 	// Get the name of the policy
 	GetName() string
 
-	// Takes in a list of dependecies and an associated manager and returns a
+	// Takes in a list of dependencies and an associated manager and returns a
 	// *new* list of dependencies consisting only of the dependencies to be
 	// changed.
 	GetNextDependencies(current []Dependency, manager DependencyManager) ([]Dependency, error)

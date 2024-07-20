@@ -3,7 +3,7 @@ package domain
 // Handler for interacting with a remote GIT provider
 //
 // Responsible for interacting with relevant interfaces exposed by a GIT
-// provider i.e Github. Lean on remote provider's capabilities as much as
+// provider i.e. GitHub. Lean on remote provider's capabilities as much as
 // possible when implementing this interface to reduce internal complexity.
 type RemoteHandler interface {
 	// Provide a unique name to represent the remote provider
