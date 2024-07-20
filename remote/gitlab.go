@@ -38,7 +38,7 @@ type GitlabRemoteHandler struct {
 	SquashCommits      bool
 }
 
-func (GitlabRemoteHandler) GetName() string {
+func (g *GitlabRemoteHandler) GetName() string {
 	return "GitlabRemoteHandler"
 }
 
