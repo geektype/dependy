@@ -43,6 +43,8 @@ func Checker(g Global) {
 	wg.Wait()
 }
 
+var VERSION string
+
 func main() {
 	startMs := time.Now()
 
@@ -54,7 +56,7 @@ func main() {
 	logger := slog.New(tint.NewHandler(os.Stdout, logOpts))
 	slog.SetDefault(logger)
 
-	slog.Info("Starting dependy")
+	slog.Info(fmt.Sprintf("Starting Dependy version: %s", VERSION))
 	slog.Info("Reading configuration file")
 
 	viper.SetConfigFile("./config/main.yaml")
