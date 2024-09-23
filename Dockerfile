@@ -1,13 +1,8 @@
-FROM golang:latest AS build
+FROM cgr.dev/chainguard/wolfi-base:latest
 
-WORKDIR /src
+WORKDIR /app
 
-COPY go.mod go.sum ./
-RUN --mount=type=cache,target=/go/pkg/mod/ \
-    go mod download -x
-COPY . .
-RUN --mount=type=cache,target=/go/pkg/mod/ --mount=type=cache,target=/root/.cache/go-build \
-    make bin
+COPY ./bin/linux/dependy .
 
-FROM scratch AS binary
-COPY --from=build /src/bin /
+
+ENTRYPOINT [ "./dependy" ]
