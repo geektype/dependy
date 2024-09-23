@@ -8,5 +8,6 @@ type GlobalConfig struct {
 	RemoteGitProvider  string   // Name of the remote GIT provider
 	TitlePrefix        string   // Prefix to use for merge request titles
 	RemoveSourceBranch bool     // Whether to delete the dependy branch after successfully merging to main branch
-	SquashCommits      bool     // Whether to squash all commits of the dependy branch before merging
+	RunInterval        int
+	SquashCommits      bool // Whether to squash all commits of the dependy branch before merging
 }

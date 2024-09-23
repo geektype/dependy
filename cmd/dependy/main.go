@@ -135,7 +135,7 @@ func main() {
 	sigs := make(chan os.Signal, 1)
 	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
 
-	ticker := time.NewTicker(5000 * time.Millisecond)
+	ticker := time.NewTicker(time.Duration(global.RunInterval) * time.Second)
 	tickDone := make(chan bool)
 	serverDone := make(chan bool)
 	firstCheck := make(chan bool)
