@@ -16,7 +16,7 @@ func NewGitlabRemoteHandler(
 	globalConfig domain.GlobalConfig,
 	gitlabConfig GitlabConfig,
 ) (*GitlabRemoteHandler, error) {
-	gClient, err := gitlab.NewClient(gitlabConfig.AuthToken)
+	gClient, err := gitlab.NewClient(gitlabConfig.AuthToken, gitlab.WithBaseURL(gitlabConfig.URL))
 	if err != nil {
 		return nil, err
 	}
