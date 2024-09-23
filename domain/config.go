@@ -10,4 +10,5 @@ type GlobalConfig struct {
 	RemoveSourceBranch bool     // Whether to delete the dependy branch after successfully merging to main branch
 	RunInterval        int
 	SquashCommits      bool // Whether to squash all commits of the dependy branch before merging
+	FilterTag          string
 }

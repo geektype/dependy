@@ -27,6 +27,7 @@ func NewGitlabRemoteHandler(
 		GitlabClient:       gClient,
 		RemoveSourceBranch: globalConfig.RemoveSourceBranch,
 		SquashCommits:      globalConfig.SquashCommits,
+		Topic:              globalConfig.FilterTag,
 	}, nil
 }
 
@@ -36,6 +37,7 @@ type GitlabRemoteHandler struct {
 	GitlabClient       *gitlab.Client
 	RemoveSourceBranch bool
 	SquashCommits      bool
+	Topic              string
 }
 
 func (g *GitlabRemoteHandler) GetName() string {
@@ -61,7 +63,7 @@ func (g *GitlabRemoteHandler) CheckMRExists(repo domain.Repository) (bool, error
 }
 
 func (g *GitlabRemoteHandler) GetRepositories() ([]domain.Repository, error) {
-	topic := "dependy"
+	topic := g.Topic
 
 	p, _, err := g.GitlabClient.Projects.ListProjects(&gitlab.ListProjectsOptions{Topic: &topic})
 	if err != nil {
